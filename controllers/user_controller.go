@@ -13,23 +13,37 @@ type Response struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-func CreateUser(w http.ResponseWriter, r http.Request) {
+func CreateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	var user models.User
-	json.NewDecoder(r.Body).Decode(&user)
-	connection.DB.Create(user)
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if user.Name == "" || user.Email == "" {
+		http.Error(w, "Name and Email are require", http.StatusBadRequest)
+		return
+	}
+	if err := connection.DB.Create(&user).Error; err != nil {
+		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		return
+	}
 	json.NewEncoder(w).Encode(Response{Status: http.StatusCreated, Message: "User Created", Data: user})
 }
 
-func GetAllUser(w http.ResponseWriter, r http.Request) {
+func GetAllUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var user []models.User
 
-	connection.DB.Find(user)
+	connection.DB.Find(&user)
 	json.NewEncoder(w).Encode(Response{Status: http.StatusOK, Message: "User retrived", Data: user})
 }
 
-func GetUserById(w http.ResponseWriter, r http.Request) {
+func GetUserById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := r.URL.Query().Get("id")
 	var user models.User
@@ -38,7 +52,7 @@ func GetUserById(w http.ResponseWriter, r http.Request) {
 	json.NewEncoder(w).Encode(Response{Status: http.StatusOK, Message: "User Retrieved", Data: user})
 }
 
-func UpdateUser(w http.ResponseWriter, r http.Request) {
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := r.URL.Query().Get("id")
 	var user models.User
@@ -49,7 +63,7 @@ func UpdateUser(w http.ResponseWriter, r http.Request) {
 	json.NewEncoder(w).Encode(Response{Status: http.StatusOK, Message: "User Update", Data: user})
 }
 
-func DeleteUser(w http.ResponseWriter, r http.Request) {
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := r.URL.Query().Get("id")
 	var user models.User
