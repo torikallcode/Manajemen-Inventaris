@@ -5,6 +5,7 @@ import (
 	"inventaris/connection"
 	"inventaris/models"
 	"net/http"
+	"strconv"
 )
 
 type Response struct {
@@ -46,8 +47,17 @@ func GetAllUser(w http.ResponseWriter, r *http.Request) {
 func GetUserById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := r.URL.Query().Get("id")
+	userID, err := strconv.Atoi(id)
+	if err != nil {
+		http.Error(w, "Invalid user", http.StatusBadRequest)
+		return
+	}
 	var user models.User
-	connection.DB.First(&user, id)
+
+	if err := connection.DB.First(&user, userID); err != nil {
+		http.Error(w, "user not found", http.StatusInternalServerError)
+		return
+	}
 
 	json.NewEncoder(w).Encode(Response{Status: http.StatusOK, Message: "User Retrieved", Data: user})
 }
@@ -55,19 +65,43 @@ func GetUserById(w http.ResponseWriter, r *http.Request) {
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := r.URL.Query().Get("id")
+	userID, err := strconv.Atoi(id)
+	if err != nil {
+		http.Error(w, "invalid user", http.StatusBadRequest)
+		return
+	}
 	var user models.User
-	connection.DB.First(&user, id)
 
-	json.NewDecoder(r.Body).Decode(&user)
-	connection.DB.Save(&user)
+	if err := connection.DB.First(&user, userID).Error; err != nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+
+	var updateUser models.User
+	if err := json.NewDecoder(r.Body).Decode(&updateUser); err != nil {
+		http.Error(w, "invalid user", http.StatusBadRequest)
+		return
+	}
+	connection.DB.Model(&user).Updates(updateUser)
 	json.NewEncoder(w).Encode(Response{Status: http.StatusOK, Message: "User Update", Data: user})
 }
 
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := r.URL.Query().Get("id")
+	userId, err := strconv.Atoi(id)
+	if err != nil {
+		http.Error(w, "invalid user", http.StatusBadRequest)
+		return
+	}
+
 	var user models.User
-	connection.DB.Delete(&user, id)
+	if err := connection.DB.First(&user, userId).Error; err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	connection.DB.Delete(&user)
 
 	json.NewEncoder(w).Encode(Response{Status: http.StatusOK, Message: "User Deleted"})
 }
